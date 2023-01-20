@@ -128,6 +128,15 @@ def asking_to_login():
     except:
         return False
 
+def is_valid_page():
+    try:
+        # Check if a valid price is given
+        float(driver.find_element(By.XPATH, xpaths['price']).text.split()[2])
+        return True
+    except:
+        return False
+ 
+
 # Loop Through Links #
 linkcounter = 1
 
@@ -136,6 +145,8 @@ OUTPUTFILE.write('Link,Base Price,Colors,Sizes,Picture Links\n')
 
 for link in links:
     # Get a Link and Wait For Load #
+    if not link.__contains__('pandabuy'):
+        continue
     driver.get(link)
     time.sleep(PAGESLEEPTIME)
     print(f'\n[=] Accessing Item #{linkcounter}')
@@ -162,6 +173,9 @@ for link in links:
     time.sleep(PAGESLEEPTIME)
 
     # Get Info #
+    if not is_valid_page():
+        continue
+
     itemlink = link
 
     itembaseprice = float(driver.find_element(By.XPATH, xpaths['price']).text.split()[2])
