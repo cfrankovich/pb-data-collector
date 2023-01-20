@@ -6,18 +6,28 @@ import random
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 
+# https://www.pandabuy.com/product?ra=772&url=https%3A%2F%2Fitem.taobao.com%2Fitem.htm%3Fid%3D601082922962&inviteCode=7WYA7LL7F
+#https://www.pandabuy.com/product?url=https%3A%2F%2Fweidian.com%2Fitem.html%3FitemID%3D2595078898&spider_token=4572
+
 # Constants #
 USERERROR = 1
 PROGRAMERROR = 2
-EMAILXPATH = '/html/body/div[1]/div[1]/section/div/div/div/div/div/div/form/div[1]/div/div[1]/input' 
-PASSWORDXPATH = '/html/body/div[1]/div[1]/section/div/div/div/div/div/div/form/div[2]/div/div/input'
-LOGINSUBMITXPATH = '/html/body/div[1]/div[1]/section/div/div/div/div/div/div/div/button'
-WILLINGTOTAKERISKSBUTTONXPATH = '/html/body/div[1]/div[1]/div[3]/div/div/div[3]/div/div[2]/div/div[2]/button'
+xpaths = {
+    'email' :'/html/body/div[1]/div[1]/section/div/div/div/div/div/div/form/div[1]/div/div[1]/input', 
+    'password' : '/html/body/div[1]/div[1]/section/div/div/div/div/div/div/form/div[2]/div/div/input',
+    'submitbtn' : '/html/body/div[1]/div[1]/section/div/div/div/div/div/div/div/button',
+    'acceptriskbtn' : '/html/body/div[1]/div[1]/div[3]/div/div/div[3]/div/div[2]/div/div[2]/button',
+    'price' : '/html/body/div[1]/div[1]/div[3]/div/div/div[1]/div[2]/div[3]/div[1]/div/span/div[2]/span[1]',
+    'name' : '/html/body/div[1]/div[1]/div[3]/div/div/div[1]/div[2]/div[2]/span[1]',
+    'sizesdiv' : '/html/body/div[1]/div[1]/div[3]/div/div/div[1]/div[2]/div[3]/div[2]/div[1]/div[2]',
+    'colorsdiv' : '/html/body/div[1]/div[1]/div[3]/div/div/div[1]/div[2]/div[3]/div[2]/div[2]/div[2]',
+    'picsdiv' : '/html/body/div[1]/div[1]/div[3]/div/div/div[1]/div[1]/div[1]/ol'
+}
 
 # Program Arguments #
 DEBUGFLAG = False
-PAGESLEEPTIME = 5
-CAPTCHASLEEPTIME = 8
+PAGESLEEPTIME = 3
+CAPTCHASLEEPTIME = 5
 
 args = sys.argv
 for arg in args:
@@ -82,39 +92,81 @@ except:
     print('Driver did not start!')
     sys.exit(PROGRAMERROR)
 
+print('- PandaBuy Data Collector -')
+
 # # # STARTING NAVIGATION # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 # Loop Through Links #
+linkcounter = 1
+
 for link in links:
     # Get a Link and Wait For Load #
     driver.get(link)
     time.sleep(PAGESLEEPTIME)
+    print(f'\n[=] Accessing Item #{linkcounter}')
+    linkcounter += 1
 
-    # Enter Email and Password #
-    driver.find_element(By.XPATH, EMAILXPATH).send_keys(pbkeys[0])
-    driver.find_element(By.XPATH, PASSWORDXPATH).send_keys(pbkeys[1])
-
-    # Captcha #
-    print('Waiting for captcha...')
-    time.sleep(CAPTCHASLEEPTIME)
-    print('Resuming!')
-
-    # Press Submit #
-    driver.find_element(By.XPATH, LOGINSUBMITXPATH).click()
-
-    # Wait for Page Load #
-    time.sleep(PAGESLEEPTIME) 
-
-    # Press I Agree If Appear #
+    # If Asked to Login #
     try:
-        driver.find_element(By.XPATH, WILLINGTOTAKERISKSBUTTONXPATH).click()
+        print('[-] Login Requested...')
+
+        for timeleft in range(CAPTCHASLEEPTIME, -1, -1):
+            print(f'Please enter captcha. Continuing in {timeleft}')
+            sys.stdout.write("\033[F")
+            time.sleep(1)
+
+        print('\nResuming...')
+
+        driver.find_element(By.XPATH, xpaths['email']).send_keys(pbkeys[0])
+        driver.find_element(By.XPATH, xpaths['password']).send_keys(pbkeys[1])
+
+        driver.find_element(By.XPATH, xpaths['submitbtn']).click()
+        print('[+] Successfully Logged In')
+        time.sleep(PAGESLEEPTIME)
     except:
         pass
 
+    time.sleep(PAGESLEEPTIME)
+
     # Get Info #
-    print('Info!')
+    itemlink = link
 
+    itembaseprice = float(driver.find_element(By.XPATH, xpaths['price']).text.split()[2])
 
+    itemsizes = []
+    xpathstring = xpaths['sizesdiv']
+    sizecounter = 1
+    while True:
+        sizexpath = xpathstring + f'/li[{sizecounter}]/span'
+        try:
+            newsize = driver.find_element(By.XPATH, sizexpath).text 
+            itemsizes.append(newsize)
+        except:
+            break
+        sizecounter += 1
+    itemsizes.pop(-1)
 
+    itemcolors = []
+    xpathstring = xpaths['colorsdiv']
+    colorscounter = 1
+    while True:
+        colorxpath = xpathstring + f'/li[{colorscounter}]/img'
+        try:
+            newcolor = driver.find_element(By.XPATH, colorxpath).get_attribute('title')
+            itemcolors.append(newcolor)
+        except:
+            break
+        colorscounter += 1
 
+    itempicturelinks = []
+    xpathstring = xpaths['picsdiv']
+    picscounter = 1
+    while True:
+        picxpath = xpathstring + f'/li[{picscounter}]/img'
+        try:
+            newpic = driver.find_element(By.XPATH, picxpath).get_attribute('src')
+            itempicturelinks.append(newpic)
+        except:
+            break
+        picscounter += 1
 
-
+    print('[+] Item Data Collected')
