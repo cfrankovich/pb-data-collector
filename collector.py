@@ -6,9 +6,6 @@ import random
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 
-# https://www.pandabuy.com/product?ra=772&url=https%3A%2F%2Fitem.taobao.com%2Fitem.htm%3Fid%3D601082922962&inviteCode=7WYA7LL7F
-#https://www.pandabuy.com/product?url=https%3A%2F%2Fweidian.com%2Fitem.html%3FitemID%3D2595078898&spider_token=4572
-
 # Constants #
 USERERROR = 1
 PROGRAMERROR = 2
@@ -28,6 +25,8 @@ xpaths = {
 DEBUGFLAG = False
 PAGESLEEPTIME = 3
 CAPTCHASLEEPTIME = 5
+LISTDELIMITER = '<>'
+OUTPUTFILENAME = 'output.csv'
 
 args = sys.argv
 for arg in args:
@@ -39,7 +38,6 @@ for arg in args:
         except:
             print('Please enter a valid argument.\n') 
             print('    --page-sleep-time=[INTEGER]')
-            print('\nRefer to the --help document for more.')
             sys.exit(USERERROR)
     elif arg.__contains__('--captcha-sleep-time='):
         try:
@@ -47,8 +45,22 @@ for arg in args:
         except:
             print('Please enter a valid argument.\n') 
             print('    --captcha-sleep-time=[INTEGER]')
-            print('\nRefer to the --help document for more.')
             sys.exit(USERERROR)
+    elif arg.__contains__('--list-delimiter'):
+        try:
+            LISTDELIMITER = arg.split('=')[1]
+        except:
+            print('Please enter a valid argument.\n') 
+            print('    --list-delimiter=[STRING]')
+            sys.exit(USERERROR) 
+    elif arg.__contains__('--output'):
+        try:
+            OUTPUTFILENAME = arg.split('=')[1]
+        except:
+            print('Please enter a valid argument.\n') 
+            print('    --output=[STRING]')
+            sys.exit(USERERROR) 
+
 
 # Get Links #
 linksfilepath = ''
@@ -95,8 +107,32 @@ except:
 print('- PandaBuy Data Collector -')
 
 # # # STARTING NAVIGATION # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
+def format_list(list):
+    s = ''
+    for item in list:
+        s += item + LISTDELIMITER 
+    return s[:-2]
+
+def format_info(itemlink, itembaseprice, itemcolors, itemsizes, itempicturelinks):
+    colors = format_list(itemcolors) 
+    sizes = format_list(itemsizes)
+    piclinks = format_list(itempicturelinks)
+    return f'{itemlink},{itembaseprice},{colors},{sizes},{piclinks}\n'
+
+def asking_to_login():
+    try:
+        driver.find_element(By.XPATH, xpaths['email'])
+        driver.find_element(By.XPATH, xpaths['password'])
+        driver.find_element(By.XPATH, xpaths['submitbtn'])
+        return True
+    except:
+        return False
+
 # Loop Through Links #
 linkcounter = 1
+
+OUTPUTFILE = open(OUTPUTFILENAME, 'w')
+OUTPUTFILE.write('Link,Base Price,Colors,Sizes,Picture Links\n')
 
 for link in links:
     # Get a Link and Wait For Load #
@@ -106,7 +142,7 @@ for link in links:
     linkcounter += 1
 
     # If Asked to Login #
-    try:
+    if asking_to_login():
         print('[-] Login Requested...')
 
         for timeleft in range(CAPTCHASLEEPTIME, -1, -1):
@@ -122,8 +158,6 @@ for link in links:
         driver.find_element(By.XPATH, xpaths['submitbtn']).click()
         print('[+] Successfully Logged In')
         time.sleep(PAGESLEEPTIME)
-    except:
-        pass
 
     time.sleep(PAGESLEEPTIME)
 
@@ -143,7 +177,8 @@ for link in links:
         except:
             break
         sizecounter += 1
-    itemsizes.pop(-1)
+    if len(itemsizes) != 0:
+        itemsizes.pop(-1)
 
     itemcolors = []
     xpathstring = xpaths['colorsdiv']
@@ -169,4 +204,8 @@ for link in links:
             break
         picscounter += 1
 
+    OUTPUTFILE.write(format_info(itemlink, itembaseprice, itemcolors, itemsizes, itempicturelinks))
+
     print('[+] Item Data Collected')
+
+OUTPUTFILE.close()
